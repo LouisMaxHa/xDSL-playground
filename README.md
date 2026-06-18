@@ -5,6 +5,7 @@
 git clone https://github.com/LouisMaxHa/xDSL-playground
 cd xDSL-playground
 
+python3 -m venv .venv
 uv run python gen_xdsl.py
 
 > Enter your choice:
