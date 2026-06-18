@@ -50,70 +50,8 @@ ptr_xdsl.store %0, %addrAlloca_1 : i64, !ptr_xdsl.ptr
 %addrLocal = builtin.unrealized_conversion_cast %addrAlloca : memref<i64> to !llvm.ptr
 ```
 
->> .venv/lib64/python3.14/site-packages/xdsl/transforms/reconcile_unrealized_casts.py:77:
->> UserWarning: Unable to remove cast UnrealizedConversionCastOp(
->>   %0 = builtin.unrealized_conversion_cast %addrAlloca : memref<i64> to !llvm.ptr
->> )
->> because it is not unifiable with its uses
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-### xDSL generated
-```mlir
-// Store
-%addrAlloca = memref.alloca() : memref<i64>
-memref.store %0, %addrAlloca[] : memref<i64>
-%addrLocal = memref.load %addrAlloca[] : memref<i64>
-```
-
-### xDSL after ConvertMemRefToPtr pass
-```mlir
-// Store
-%addrAlloca = memref.alloca() : memref<i64>
-%addrAlloca_1 = ptr_xdsl.to_ptr %addrAlloca : memref<i64> -> !ptr_xdsl.ptr
-ptr_xdsl.store %0, %addrAlloca_1 : i64, !ptr_xdsl.ptr
-%addrAlloca_2 = ptr_xdsl.to_ptr %addrAlloca : memref<i64> -> !ptr_xdsl.ptr
-%addrLocal = ptr_xdsl.load %addrAlloca_2 : !ptr_xdsl.ptr -> i64
-```
-
-### xDSL after ConvertPtrTypeOffsetsPass pass
-```mlir
-// Store
-%addrAlloca = memref.alloca() : memref<i64>
-%addrAlloca_1 = ptr_xdsl.to_ptr %addrAlloca : memref<i64> -> !ptr_xdsl.ptr
-ptr_xdsl.store %0, %addrAlloca_1 : i64, !ptr_xdsl.ptr
-%addrAlloca_2 = ptr_xdsl.to_ptr %addrAlloca : memref<i64> -> !ptr_xdsl.ptr
-%addrLocal = ptr_xdsl.load %addrAlloca_2 : !ptr_xdsl.ptr -> i64
-```
-
-### xDSL after ConvertPtrToLLVMPass pass
-```mlir
-// Store
-%addrAlloca = memref.alloca() : memref<i64>
-%1 = builtin.unrealized_conversion_cast %addrAlloca : memref<i64> to !llvm.ptr
-"llvm.store"(%0, %1) <{ordering = 0 : i64}> : (i64, !llvm.ptr) -> ()
-%addrLocal = builtin.unrealized_conversion_cast %addrAlloca : memref<i64> to !llvm.ptr
-```
-
->> .venv/lib64/python3.14/site-packages/xdsl/transforms/reconcile_unrealized_casts.py:77:
->> UserWarning: Unable to remove cast UnrealizedConversionCastOp(
->>   %0 = builtin.unrealized_conversion_cast %addrAlloca : memref<i64> to !llvm.ptr
->> )
->> because it is not unifiable with its uses
+> .venv/lib64/python3.14/site-packages/xdsl/transforms/reconcile_unrealized_casts.py:77:
+> UserWarning: Unable to remove cast UnrealizedConversionCastOp(
+>   %0 = builtin.unrealized_conversion_cast %addrAlloca : memref<i64> to !llvm.ptr
+> )
+> because it is not unifiable with its uses
