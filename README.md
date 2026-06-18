@@ -2,7 +2,7 @@
 
 
 ```
-git https://github.com/LouisMaxHa/xDSL-playground
+git clone https://github.com/LouisMaxHa/xDSL-playground
 cd xDSL-playground
 
 uv run python gen_xdsl.py
