@@ -103,8 +103,8 @@ def main():
 
     print(
         "Enter your choice:\n"
-        "0) memref<i64>   -> ptr.ptr (ok)\n"
-        "1) memref.alloca -> ptr.ptr(error)"
+        "0) i64   -> ptr.ptr (ok)\n"
+        "1) i64 -> memref.alloca -(error)> i64 -> ptr.ptr"
     )
     choice = input("> ")
 

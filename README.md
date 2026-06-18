@@ -8,16 +8,16 @@ cd xDSL-playground
 uv run python gen_xdsl.py
 
 > Enter your choice:
-> 0) memref<i64>   -> ptr.ptr (ok)
-> 1) memref.alloca -> ptr.ptr (error)
+> 0) i64   -> ptr.ptr (ok)
+> 1) i64 -> memref.alloca -(error)> i64 -> ptr.ptr
 ```
 
 The goal of this project is to create a function that takes a pointer to an integer and returns its value.
 We'll use a C++ program (`caller.cpp`) that will call this external function.
 The purpose of this is to create a proof of concept (PoC) for more advanced functions.
 
-The purpose of this short demo is to test the use of the ptr dialect with xDSL.
-The first function works, but the second one has a problem during lowering; below is an excerpt from the IR that causes the issue
+This short demo is to test the use of the ptr dialect with xDSL.
+The first function works, but the second one has a problem during lowering; below is an excerpt from the IR that causes the issue. It seems to be caused by the alloca of a i64 using memref.
 
 
 ### xDSL generated
