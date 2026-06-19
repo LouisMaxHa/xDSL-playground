@@ -99,7 +99,7 @@ def main():
     func.attributes["llvm.emit_c_interface"] = UnitAttr()
     builder_module.insert(func)
     builder = Builder(InsertPoint.at_end(func.body.block))
-    addr = func.args[0]
+    arg = func.args[0]
 
     print(
         "Enter your choice:\n"
@@ -107,77 +107,55 @@ def main():
         "1) i64 -> memref.alloca -(error)> i64 -> ptr.ptr"
     )
     choice = input("> ")
+    if choice in ("0", ""):
+        # Take directly the arg
+        addr_local =     arg
 
-    match choice:
-        case "0":
-            # addr -> llvm.ptr
-            ptr_llvm = builder.insert(
-                llvm.IntToPtrOp(addr)
-            ).results[0]
-            ptr_llvm.name_hint = "llvmPtr"
 
-            # llvm.ptr -> ptr.ptr
-            ptr_ptr = builder.insert(
-                builtin.UnrealizedConversionCastOp.get([ptr_llvm], [ptr.PtrType()])
-            ).results[0]
-            ptr_ptr.name_hint = "ptrPtr"
+    else:
+        # Alloca, store to alloca, load from alloca
 
-            # ptr.ptr -> memref<i64>
-            deref = builder.insert(
-                ptr.FromPtrOp(ptr_ptr, MemRefType(IntegerType(64), []))
-            ).results[0]
-            deref.name_hint = "deref"
+        # Alloc addrAlloca (memref<i64>)
+        addr_alloca = builder.insert(
+            memref.AllocaOp.get(IntegerType(64), shape=[])
+        ).memref
+        addr_alloca.name_hint = "addrAlloca"
 
-            #   memref<i64> -> i64
-            loaded = builder.insert(
-                memref.LoadOp.get(deref, [])
-            ).results[0]
-            loaded.name_hint = "loaded"
+        # Store addr into addrAlloca
+        builder.insert(
+            memref.StoreOp.get(arg, addr_alloca, [])
+        )
 
-        case "1":
-            # Alloc addrAlloca (memref<i64>)
-            addr_alloca = builder.insert(
-                memref.AllocaOp.get(IntegerType(64), shape=[])
-            ).memref
-            addr_alloca.name_hint = "addrAlloca"
+        # Load it back to addrLocal
+        addr_local = builder.insert(
+            memref.LoadOp.get(addr_alloca, [])
+        ).results[0]
+        addr_local.name_hint = "addrLocal"
 
-            # Store addr into addrAlloca
-            builder.insert(
-                memref.StoreOp.get(addr, addr_alloca, [])
-            )
 
-            # Load it back to addrLocal
-            addr_local = builder.insert(
-                memref.LoadOp.get(addr_alloca, [])
-            ).results[0]
-            addr_local.name_hint = "addrLocal"
+    # i64 addr -> llvm.ptr
+    ptr_llvm = builder.insert(
+        llvm.IntToPtrOp(input=addr_local)
+    ).results[0]
+    ptr_llvm.name_hint = "llvmPtr"
 
-            # addrLocal -> llvm.ptr
-            ptr_llvm = builder.insert(
-                llvm.IntToPtrOp(addr_local)
-            ).results[0]
-            ptr_llvm.name_hint = "llvmPtr"
+    # llvm.ptr -> ptr.ptr
+    ptr_ptr = builder.insert(
+        builtin.UnrealizedConversionCastOp.get([ptr_llvm], [ptr.PtrType()])
+    ).results[0]
+    ptr_ptr.name_hint = "ptrPtr"
 
-            # llvm.ptr -> ptr.ptr
-            ptr_ptr = builder.insert(
-                builtin.UnrealizedConversionCastOp.get([ptr_llvm], [ptr.PtrType()])
-            ).results[0]
-            ptr_ptr.name_hint = "ptrPtr"
+    # ptr.ptr -> memref<i64>
+    deref = builder.insert(
+        ptr.FromPtrOp(ptr_ptr, MemRefType(IntegerType(64), []))
+    ).results[0]
+    deref.name_hint = "deref"
 
-            # ptr.ptr -> memref<i64>
-            deref = builder.insert(
-                ptr.FromPtrOp(ptr_ptr, MemRefType(IntegerType(64), []))
-            ).results[0]
-            deref.name_hint = "deref"
-
-            #   memref<i64> -> i64
-            loaded = builder.insert(
-                memref.LoadOp.get(deref, [])
-            ).results[0]
-            loaded.name_hint = "loaded"
-
-        case _:
-            raise ValueError
+    #   memref<i64> -> i64
+    loaded = builder.insert(
+        memref.LoadOp.get(deref, [])
+    ).results[0]
+    loaded.name_hint = "loaded"
 
     # return i64
     builder.insert(ReturnOp(loaded))
