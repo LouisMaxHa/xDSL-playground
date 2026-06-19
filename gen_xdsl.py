@@ -6,11 +6,19 @@ from pathlib import Path
 
 from xdsl.builder import Builder
 from xdsl.context import Context
-from xdsl.dialects import builtin, llvm, memref, ptr
-from xdsl.dialects.builtin import IntegerType, MemRefType, ModuleOp, UnitAttr
+from xdsl.dialects import arith, builtin, llvm, memref, ptr
+from xdsl.dialects.builtin import (
+    IndexType,
+    IntegerAttr,
+    IntegerType,
+    MemRefType,
+    ModuleOp,
+    UnitAttr,
+)
 from xdsl.dialects.func import FuncOp, ReturnOp
 from xdsl.printer import Printer
 from xdsl.rewriter import InsertPoint
+from xdsl.transforms.canonicalize import CanonicalizePass
 from xdsl.transforms.convert_memref_to_ptr import ConvertMemRefToPtr
 from xdsl.transforms.convert_ptr_to_llvm import (
     ConvertPtrToLLVMPass,
@@ -19,10 +27,10 @@ from xdsl.transforms.reconcile_unrealized_casts import ReconcileUnrealizedCastsP
 
 
 # ──────────── Utils ────────────
-def run(cmd: list[str]) -> str:
+def run(cmd: list[str]):
     print(" ".join(cmd))
     try:
-        result = subprocess.run(
+        subprocess.run(
             cmd,
             check=True,
             capture_output=True,
@@ -33,7 +41,6 @@ def run(cmd: list[str]) -> str:
         print(f"Error when running {cmd} :", file=sys.stderr)
         print(exc.stderr, file=sys.stderr)
         exit(1)
-    return result
 
 
 def display(path: Path, text: str):
@@ -45,6 +52,9 @@ def display(path: Path, text: str):
 # ──────────── Passes config ────────────
 XDSL_OPT_PASSES = [
     ConvertMemRefToPtr,
+    # Simplifies ptr.to_ptr(ptr.from_ptr(p)) → p after ConvertMemRefToPtr.
+    # Required when memref views are backed by llvm.alloca via ptr.from_ptr.
+    CanonicalizePass,
     # ConvertPtrTypeOffsetsPass,
     ConvertPtrToLLVMPass,
     ReconcileUnrealizedCastsPass,
@@ -97,22 +107,25 @@ def main():
     # Add function
     func = FuncOp("xdsl_main", ([IntegerType(64)], [IntegerType(64)]))
     func.attributes["llvm.emit_c_interface"] = UnitAttr()
-    builder_module.insert(func)
+    _ = builder_module.insert(func)
     builder = Builder(InsertPoint.at_end(func.body.block))
     arg = func.args[0]
 
     print(
-        "Enter your choice:\n"
-        "0) i64   -> ptr.ptr (ok)\n"
-        "1) i64 -> memref.alloca -(error)> i64 -> ptr.ptr"
+        """Enter your choice:
+0) i64   -> ptr.ptr (ok)
+1) i64 -> memeref.alloca + ptr.from_ptr -> memref<i64> -> ptr.ptr (error)
+2) i64 ->    llvm.alloca + ptr.from_ptr -> memref<i64> -> ptr.ptr (ok)"""
     )
     choice = input("> ")
+    addr_local = None
+
     if choice in ("0", ""):
         # Take directly the arg
         addr_local =     arg
 
 
-    else:
+    if choice == "1":
         # Alloca, store to alloca, load from alloca
 
         # Alloc addrAlloca (memref<i64>)
@@ -122,7 +135,7 @@ def main():
         addr_alloca.name_hint = "addrAlloca"
 
         # Store addr into addrAlloca
-        builder.insert(
+        _ = builder.insert(
             memref.StoreOp.get(arg, addr_alloca, [])
         )
 
@@ -132,6 +145,46 @@ def main():
         ).results[0]
         addr_local.name_hint = "addrLocal"
 
+
+    if choice == "2":
+        # llvm.alloca requires a signless integer size (not index)
+        size_one = builder.insert(
+            llvm.ConstantOp(IntegerAttr(1, IntegerType(32)), IntegerType(32))
+        ).result
+        size_one.name_hint = "c1"
+
+        # llvm.alloca
+        addr_alloca_llvm = builder.insert(
+            llvm.AllocaOp(size_one, IntegerType(64))
+        ).res
+        addr_alloca_llvm.name_hint = "llvmAlloca"
+
+        # llvm.ptr → ptr_xdsl.ptr
+        addr_alloca_xptr = builder.insert(
+            builtin.UnrealizedConversionCastOp.get(
+                [addr_alloca_llvm], [ptr.PtrType()]
+            )
+        ).results[0]
+        addr_alloca_xptr.name_hint = "addrAllocaXPtr"
+
+        # Expose as memref<i64>
+        addr_alloca = builder.insert(
+            ptr.FromPtrOp(addr_alloca_xptr, MemRefType(IntegerType(64), []))
+        ).results[0]
+        addr_alloca.name_hint = "addrAlloca"
+
+        # Store arg into addrAlloca
+        _ = builder.insert(
+            memref.StoreOp.get(arg, addr_alloca, [])
+        )
+
+        # Load it back to addrLocal
+        addr_local = builder.insert(
+            memref.LoadOp.get(addr_alloca, [])
+        ).results[0]
+        addr_local.name_hint = "addrLocal"
+
+    assert addr_local is not None
 
     # i64 addr -> llvm.ptr
     ptr_llvm = builder.insert(
@@ -158,7 +211,7 @@ def main():
     loaded.name_hint = "loaded"
 
     # return i64
-    builder.insert(ReturnOp(loaded))
+    _ = builder.insert(ReturnOp(loaded))
     func.update_function_type()
 
 
