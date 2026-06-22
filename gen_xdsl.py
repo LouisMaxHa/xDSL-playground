@@ -113,16 +113,16 @@ def main():
 
     print(
         """Enter your choice:
-0) i64   -> ptr.ptr (ok)
+0) i64 -> ptr.ptr (ok)
 1) i64 -> memeref.alloca + ptr.from_ptr -> memref<i64> -> ptr.ptr (error)
-2) i64 ->    llvm.alloca + ptr.from_ptr -> memref<i64> -> ptr.ptr (ok)"""
+2) i64 -> llvm.alloca + ptr.from_ptr -> memref<i64> -> ptr.ptr (ok)"""
     )
     choice = input("> ")
     addr_local = None
 
     if choice in ("0", ""):
         # Take directly the arg
-        addr_local =     arg
+        addr_local = arg
 
 
     if choice == "1":
