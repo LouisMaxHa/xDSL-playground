@@ -1,14 +1,16 @@
 # xDSL, ptr.ptr and memref.alloca
 
+
 This repo aims to analyze and propose a solution to improve the use of the `xdsl_ptr` dialect and its compatibility with `memref.alloca` and the `ptr` dialect.
 
-```
+```bash
 git clone https://github.com/LouisMaxHa/xDSL-playground
 cd xDSL-playground
 
 uv venv
 source .venv/bin/activate
-uv pip install xdsl
+uv pip install -e ./xdsl
+
 uv run python gen_xdsl.py
 
 Enter your choice:
@@ -17,6 +19,17 @@ Enter your choice:
 2) i64 -> llvm.alloca + ptr.from_ptr -> memref<i64> -> ptr.ptr (ok)
 > 
 ```
+
+Launch xdsl tests
+```bash
+uv pip install "lit<19" "filecheck==1.0.3"
+uv run python xdsl/tools/xdsl_opt.py --split-input-file -p convert-memref-to-ptr tests/filecheck/transforms/convert_memref_to_ptr.mlir
+
+uv run lit tests/filecheck/transforms/convert_memref_to_ptr.mlir
+
+uv run xdsl-opt -p convert-memref-to-ptr --split-input-file --verify-diagnostics tests/filecheck/transforms/convert_memref_to_ptr.mlir | uv run filecheck tests/filecheck/transforms/convert_memref_to_ptr.mlir
+```
+
 
 The goal of this project is to create a function that takes a pointer to an integer and returns its value.
 We'll use a C++ program (`caller.cpp`) that will call this external function.
