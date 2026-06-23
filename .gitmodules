@@ -1,0 +1,4 @@
+[submodule "xdsl"]
+	path = xdsl
+	url = ./xdsl
+	branch = LouisMaxHa/add-ConvertAllocaPattern
